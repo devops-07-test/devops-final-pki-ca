@@ -1,0 +1,16 @@
+Source: devops-ca-tools
+Section: admin
+Priority: optional
+Maintainer: DevOps Student <admin@devops.local>
+Standards-Version: 4.6.0
+
+Package: devops-ca-tools
+Architecture: all
+Depends: easy-rsa, openssl, ufw, bash
+Description: Набор утилит для удостоверяющего центра (CA) DevOps-проекта
+ Набор скриптов и базовых каталогов для развёртывания
+ и обслуживания простого удостоверяющего центра (CA)
+ на базе Easy-RSA. Пакет подготавливает окружение,
+ создаёт структуру /etc/pki и устанавливает утилиты
+ для инициализации PKI, выпуска и отзыва сертификатов.
+

@@ -1,0 +1,20 @@
+#!/bin/sh
+set -e
+
+case "$1" in
+  configure)
+    # Создаём /etc/pki, если его ещё нет
+    if [ ! -d /etc/pki ]; then
+      mkdir -p /etc/pki
+      chmod 700 /etc/pki
+      chown root:root /etc/pki
+    fi
+
+    # Symlink на easy-rsa
+    if [ -x /usr/share/easy-rsa/easyrsa ] && [ ! -x /usr/local/bin/easy-rsa ]; then
+      ln -s /usr/share/easy-rsa/easyrsa /usr/local/bin/easy-rsa
+    fi
+    ;;
+esac
+
+exit 0
