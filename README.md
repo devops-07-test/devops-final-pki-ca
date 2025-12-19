@@ -132,3 +132,31 @@
 1. Поднять новую ВМ в Yandex Cloud (Ubuntu 24.04, SSH по ключу).  
 
 2. Скопировать на неё deb‑пакет и репозиторий (команда запускается на локальной машине):
+
+- scp artifacts/devops-ca-tools_1.0-1_all.deb user@<ip>:~
+- scp -r devops-final-pki-ca user@<ip>:~
+
+3. На ВМ установить зависимости и deb‑пакет:
+
+- sudo apt update
+- sudo apt install -y easy-rsa openssl ufw bash
+- sudo dpkg -i devops-ca-tools_1.0-1_all.deb
+
+4. Скопировать скрипты в системный путь и запустить автоматизацию:
+
+- cd ~/devops-final-pki-ca/scripts
+- sudo cp install_ca.sh init_ca.sh sign_csr.sh revoke_cert.sh /usr/local/sbin/
+- sudo chmod +x /usr/local/sbin/*.sh
+
+- sudo install_ca.sh
+- sudo init_ca.sh
+
+5. Проверить, что CA создан:
+
+- sudo ls /etc/pki/pki
+- sudo ls -l /etc/pki/pki/private/ca.key
+- sudo openssl x509 -in /etc/pki/pki/ca.crt -noout -subject -issuer -dates
+
+После выполнения этих шагов на новой ВМ автоматически развёрнут удостоверяющий центр с такой же структурой PKI, как на исходном сервере.  
+
+## Подробное текстовое описание Этапа 1 (роль CA, структура PKI, скрипты, deb‑пакет и проверка воспроизводимости) находится в файле `docs/stage1-pki.md`.
