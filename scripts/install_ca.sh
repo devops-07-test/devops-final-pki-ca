@@ -10,7 +10,7 @@ if [[ "$(id -u)" -ne 0 ]]; then
 fi
 
 echo "[*] Обновление пакетов..."
-apt update -y
+apt-get update
 
 echo "[*] Установка зависимостей: easy-rsa, openssl, ufw..."
 DEBIAN_FRONTEND=noninteractive apt install -y easy-rsa openssl ufw
@@ -50,7 +50,7 @@ ufw allow ssh
 
 # Включаем UFW, если ещё не включен
 if ufw status | grep -q "Status: inactive"; then
-  echo "y" | ufw enable
+  echo "y" | ufw --force enable
 else
   echo "[*] UFW уже активен, правила обновлены."
 fi

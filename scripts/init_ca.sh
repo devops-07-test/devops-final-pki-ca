@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -euo pipefail umask 077
 
 # init_ca.sh – инициализация PKI и создание Root CA
 
