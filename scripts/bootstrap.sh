@@ -19,11 +19,51 @@ install_scripts_to_path() {
   install -m 0755 "$SCRIPT_DIR/revoke_cert.sh" /usr/local/sbin/revoke_cert.sh
 }
 
+run_init_ca_with_retry() {
+  local attempts=0
+  local max_attempts=3
+
+  while true; do
+    attempts=$((attempts + 1))
+
+    echo "[*] Stage1: CA init (попытка $attempts/$max_attempts)"
+    echo "[i] Сейчас Easy-RSA запросит пароль ключа CA. Пароль обязателен."
+
+    set +e
+    /usr/local/sbin/init_ca.sh
+    rc=$?
+    set -e
+
+    if [[ $rc -eq 0 ]]; then
+      return 0
+    fi
+
+    echo
+    echo "[!] Ошибка при создании Root CA (код: $rc)."
+    echo "[!] Пароль для ключа CA обязателен — без него продолжить нельзя."
+    echo "[i] Если ошибся при вводе пароля/подтверждении или CN — просто повтори."
+    echo
+
+    if [[ $attempts -ge $max_attempts ]]; then
+      echo "[!] Достигнут лимит попыток ($max_attempts). Завершаю."
+      return 1
+    fi
+
+    read -r -p "Повторить ввод пароля и продолжить? [y/N]: " ans
+    case "${ans:-N}" in
+      y|Y|yes|YES) ;;
+      *) echo "[!] Остановлено пользователем."; return 1 ;;
+    esac
+  done
+}
+
 run_stage1() {
   echo "[*] Stage1: CA install"
   /usr/local/sbin/install_ca.sh
+
   echo "[*] Stage1: CA init"
-  /usr/local/sbin/init_ca.sh
+  run_init_ca_with_retry
+
   echo "[+] Stage1 completed"
 }
 
