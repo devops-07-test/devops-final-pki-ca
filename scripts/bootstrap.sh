@@ -3,7 +3,8 @@ set -euo pipefail
 
 ###############################################################################
 # DevOps Final Project - Bootstrap Orchestrator
-# Поддерживает этапы 1-6 инфраструктуры (CA, VPN, мониторинг, бэкапы, доки)
+# Поддерживает этапы 1-4 инфраструктуры (CA, VPN, мониторинг, бэкапы)
+# Этапы 5 (документация) и 6 (план развития) являются отдельными документами.
 ###############################################################################
 
 usage() {
@@ -14,13 +15,11 @@ usage() {
   stage1         - развернуть и проверить CA (vm-ca)
   stage2         - подготовить VPN-сервер OpenVPN (vm-vpn)
   stage2-verify  - проверить состояние VPN-сервера (vm-vpn)
-  stage3         - развернуть Prometheus + Alertmanager (vm-monitor) [TODO]
-  stage3-verify  - проверить мониторинг [TODO]
-  stage4         - настроить резервное копирование (vm-backup) [TODO]
-  stage4-verify  - проверить бэкапы [TODO]
-  stage5         - подготовить документацию [TODO]
-  stage6         - план развития (roadmap) [TODO]
-  all            - последовательно выполнить все этапы [TODO для 2-6]
+  stage3         - развернуть Prometheus + Alertmanager (vm-monitor)
+  stage3-verify  - проверить мониторинг
+  stage4         - настроить резервное копирование (vm-backup)
+  stage4-verify  - проверить бэкапы
+  all            - последовательно выполнить этапы 1-4 [ВНИМАНИЕ: Используйте с осторожностью]
 
 Примеры:
   # На vm-ca:
@@ -72,6 +71,9 @@ die() {
 install_scripts_to_path() {
   log_info "Установка скриптов в /usr/local/sbin..."
 
+  # Создаем целевую директорию, если её нет
+  mkdir -p /usr/local/sbin
+
   # Stage1
   [[ -f "$SCRIPT_DIR/install_ca.sh" ]] && \
     install -m 0755 "$SCRIPT_DIR/install_ca.sh" /usr/local/sbin/install_ca.sh
@@ -94,10 +96,8 @@ install_scripts_to_path() {
   [[ -f "$SCRIPT_DIR/stage2_create_client_ovpn.sh" ]] && \
     install -m 0755 "$SCRIPT_DIR/stage2_create_client_ovpn.sh" /usr/local/sbin/stage2_create_client_ovpn.sh
 
-  # Stage3 (TODO)
-  # Stage4 (TODO)
-  # Stage5 (TODO)
-  # Stage6 (TODO)
+  # Stage3 и Stage4 (скрипты добавляются по мере разработки этапов)
+  # [[ -f "$SCRIPT_DIR/stage3_...sh" ]] && install ...
 
   log_success "Скрипты установлены."
 }
@@ -222,7 +222,7 @@ run_stage2() {
        sudo stage2_configure_openvpn.sh
 
   5) (Опционально) На vm-vpn создать клиентский профиль:
-       sudo stage2_create_client_ovpn.sh lient-name>
+       sudo stage2_create_client_ovpn.sh client-name>
 
 После выполнения шагов можно запустить:
   sudo ./bootstrap.sh stage2-verify
@@ -259,51 +259,80 @@ verify_stage2() {
 }
 
 ###############################################################################
-# STAGE 3: Мониторинг (Prometheus + Alertmanager) [TODO]
+# STAGE 3: Мониторинг (Prometheus + Alertmanager)
 ###############################################################################
 
 run_stage3() {
-  log_error "[TODO] Stage3: мониторинг (Prometheus + Alertmanager)"
+  log_info "Stage3: развертывание мониторинга (Prometheus + Alertmanager)"
   echo "[i] Этап 3 находится в разработке. Будет добавлен позже."
+  # TODO: Вызов скриптов stage3_install_prometheus.sh и stage3_configure_alerts.sh
   return 0
 }
 
 verify_stage3() {
-  log_error "[TODO] Stage3: verify"
+  log_info "Stage3: проверка мониторинга"
   echo "[i] Этап 3 находится в разработке."
+  # TODO: Проверка состояния сервисов, доступности портов, наличия данных.
   return 0
 }
 
 ###############################################################################
-# STAGE 4: Резервное копирование [TODO]
+# STAGE 4: Резервное копирование
 ###############################################################################
 
 run_stage4() {
-  log_error "[TODO] Stage4: резервное копирование"
+  log_info "Stage4: настройка резервного копирования"
   echo "[i] Этап 4 находится в разработке. Будет добавлен позже."
+  # TODO: Вызов скриптов stage4_configure_backup.sh
   return 0
 }
 
 verify_stage4() {
-  log_error "[TODO] Stage4: verify"
+  log_info "Stage4: проверка бэкапов"
   echo "[i] Этап 4 находится в разработке."
+  # TODO: Проверка существования последних бэкапов, их целостности.
   return 0
 }
 
 ###############################################################################
-# STAGE 5: Документация [TODO]
+# ОСНОВНАЯ ЛОГИКА ЗАПУСКА
 ###############################################################################
 
-run_stage5() {
-  log_error "[TODO] Stage5: документация"
-  echo "[i] Этап 5 находится в разработке. Будет добавлен позже."
-  return 0
-}
+# Первым делом устанавливаем скрипты в PATH
+install_scripts_to_path
 
-###############################################################################
-# STAGE 6: План развития [TODO]
-###############################################################################
-
-run_stage6() {
-  log_error "[TODO] Stage6: план развития (roadmap)"
-  echo "[i] Этап 6 находится в разработке. Будет добавл
+case "$MODE" in
+  stage1)
+    run_stage1
+    ;;
+  stage2)
+    run_stage2
+    ;;
+  stage2-verify)
+    verify_stage2
+    ;;
+  stage3)
+    run_stage3
+    ;;
+  stage3-verify)
+    verify_stage3
+    ;;
+  stage4)
+    run_stage4
+    ;;
+  stage4-verify)
+    verify_stage4
+    ;;
+  all)
+    log_info "Последовательно выполняю все этапы (1-4)..."
+    run_stage1
+    run_stage2
+    run_stage3
+    run_stage4
+    log_success "Все этапы (1-4) выполнены."
+    ;;
+  *)
+    log_error "Неизвестный режим: $MODE"
+    usage
+    ;;
+esac
