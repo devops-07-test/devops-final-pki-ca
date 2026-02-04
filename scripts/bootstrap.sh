@@ -15,7 +15,7 @@ usage() {
   stage1         - развернуть и проверить CA (vm-ca)
   stage2         - подготовить VPN-сервер OpenVPN (vm-vpn)
   stage2-verify  - проверить состояние VPN-сервера (vm-vpn)
-  stage3         - развернуть Prometheus + Alertmanager (vm-monitor)
+  stage3         - развернуть мониторинг (vm-monitor)
   stage3-verify  - проверить мониторинг
   stage4         - настроить резервное копирование (vm-backup)
   stage4-verify  - проверить бэкапы
@@ -28,6 +28,14 @@ usage() {
   # На vm-vpn:
   sudo ./bootstrap.sh stage2
   sudo ./bootstrap.sh stage2-verify
+
+  # На vm-monitor:
+  sudo ./bootstrap.sh stage3
+  sudo ./bootstrap.sh stage3-verify
+
+  # На vm-backup:
+  sudo ./bootstrap.sh stage4
+  sudo ./bootstrap.sh stage4-verify
 
 Все режимы требуют root-доступа.
 EOF
@@ -96,8 +104,17 @@ install_scripts_to_path() {
   [[ -f "$SCRIPT_DIR/stage2_create_client_ovpn.sh" ]] && \
     install -m 0755 "$SCRIPT_DIR/stage2_create_client_ovpn.sh" /usr/local/sbin/stage2_create_client_ovpn.sh
 
-  # Stage3 и Stage4 (скрипты добавляются по мере разработки этапов)
-  # [[ -f "$SCRIPT_DIR/stage3_...sh" ]] && install ...
+  # Stage3
+  [[ -f "$SCRIPT_DIR/stage3_install_monitoring.sh" ]] && \
+    install -m 0755 "$SCRIPT_DIR/stage3_install_monitoring.sh" /usr/local/sbin/stage3_install_monitoring.sh
+  [[ -f "$SCRIPT_DIR/stage3_configure_prometheus.sh" ]] && \
+    install -m 0755 "$SCRIPT_DIR/stage3_configure_prometheus.sh" /usr/local/sbin/stage3_configure_prometheus.sh
+
+  # Stage4
+  [[ -f "$SCRIPT_DIR/stage4_run_backup.sh" ]] && \
+    install -m 0755 "$SCRIPT_DIR/stage4_run_backup.sh" /usr/local/sbin/stage4_run_backup.sh
+  [[ -f "$SCRIPT_DIR/stage4_configure_backup.sh" ]] && \
+    install -m 0755 "$SCRIPT_DIR/stage4_configure_backup.sh" /usr/local/sbin/stage4_configure_backup.sh
 
   log_success "Скрипты установлены."
 }
@@ -264,16 +281,59 @@ verify_stage2() {
 
 run_stage3() {
   log_info "Stage3: развертывание мониторинга (Prometheus + Alertmanager)"
-  echo "[i] Этап 3 находится в разработке. Будет добавлен позже."
-  # TODO: Вызов скриптов stage3_install_prometheus.sh и stage3_configure_alerts.sh
-  return 0
+
+  if ! command -v prometheus >/dev/null 2>&1; then
+    log_info "Prometheus не найден, запускаю stage3_install_monitoring.sh..."
+    /usr/local/sbin/stage3_install_monitoring.sh
+  else
+    log_info "Prometheus уже установлен, пропускаю stage3_install_monitoring.sh."
+  fi
+
+  log_info "Stage3: конфигурация Prometheus и Alertmanager"
+  /usr/local/sbin/stage3_configure_prometheus.sh
+
+  cat <<'EOF'
+
+[i] Следующие шаги:
+  1) Обнови /etc/prometheus/targets.yml (IP-адреса vm-ca/vm-vpn/vm-backup).
+  2) При необходимости настрой alertmanager.yml под реальные каналы уведомлений.
+  3) Проверь доступность веб-интерфейса Prometheus (http://<monitor>:9090).
+
+После выполнения шагов можно запустить:
+  sudo ./bootstrap.sh stage3-verify
+
+EOF
 }
 
 verify_stage3() {
   log_info "Stage3: проверка мониторинга"
-  echo "[i] Этап 3 находится в разработке."
-  # TODO: Проверка состояния сервисов, доступности портов, наличия данных.
-  return 0
+
+  for svc in prometheus alertmanager prometheus-node-exporter; do
+    if ! systemctl is-active --quiet "$svc"; then
+      log_error "FAIL: сервис $svc не активен"
+      return 1
+    fi
+  done
+
+  if ! ss -lnt | grep -q ":9090 "; then
+    log_error "FAIL: Prometheus не слушает 9090/tcp."
+    return 1
+  fi
+  if ! ss -lnt | grep -q ":9093 "; then
+    log_error "FAIL: Alertmanager не слушает 9093/tcp."
+    return 1
+  fi
+  if ! ss -lnt | grep -q ":9100 "; then
+    log_error "FAIL: Node Exporter не слушает 9100/tcp."
+    return 1
+  fi
+
+  if [[ ! -f /etc/prometheus/targets.yml ]]; then
+    log_error "FAIL: отсутствует /etc/prometheus/targets.yml"
+    return 1
+  fi
+
+  log_success "Stage3 verify: OK"
 }
 
 ###############################################################################
@@ -282,16 +342,34 @@ verify_stage3() {
 
 run_stage4() {
   log_info "Stage4: настройка резервного копирования"
-  echo "[i] Этап 4 находится в разработке. Будет добавлен позже."
-  # TODO: Вызов скриптов stage4_configure_backup.sh
-  return 0
+  /usr/local/sbin/stage4_configure_backup.sh
+
+  cat <<'EOF'
+
+[i] Бэкапы выполняются таймером systemd (devops-backup.timer).
+    Для ручного запуска:
+      sudo /usr/local/sbin/stage4_run_backup.sh
+
+После выполнения шагов можно запустить:
+  sudo ./bootstrap.sh stage4-verify
+
+EOF
 }
 
 verify_stage4() {
   log_info "Stage4: проверка бэкапов"
-  echo "[i] Этап 4 находится в разработке."
-  # TODO: Проверка существования последних бэкапов, их целостности.
-  return 0
+
+  if ! systemctl is-active --quiet devops-backup.timer; then
+    log_error "FAIL: таймер devops-backup.timer не активен"
+    return 1
+  fi
+
+  if ! ls -1 /var/backups/devops-final/devops-backup-*.tar.gz >/dev/null 2>&1; then
+    log_error "FAIL: нет бэкапов в /var/backups/devops-final"
+    return 1
+  fi
+
+  log_success "Stage4 verify: OK"
 }
 
 ###############################################################################
