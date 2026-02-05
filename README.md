@@ -35,22 +35,20 @@
 
 ---
 
-## Состав серверов проекта (план)
+## Состав серверов проекта
 
-На текущем этапе реализован первый компонент – CA‑сервер. В дальнейшем планируются: 
-
-- **CA‑сервер (PKI)**  
+- **CA‑сервер (PKI, Этап 1)**  
   - Роль: выдача и отзыв сертификатов для VPN и других сервисов  
   - Особенности: отдельная ВМ, минимальный набор открытых портов (только SSH), хранит приватный ключ CA и PKI 
 
-- **VPN‑сервер (OpenVPN)**  
+- **VPN‑сервер (OpenVPN, Этап 2)**  
   - Роль: точка входа во внутреннюю сеть компании  
   - Использует сертификат, подписанный CA 
 
-- **Сервер мониторинга (Prometheus + Alertmanager)**  
+- **Сервер мониторинга (Prometheus + Alertmanager, Этап 3)**  
   - Роль: сбор метрик, алерты по состоянию VPN и инфраструктуры 
 
-- **Сервер(ы) бэкапов**  
+- **Сервер(ы) бэкапов (Этап 4)**  
   - Роль: хранение данных, конфигураций, скриптов и deb‑пакетов, сценарии восстановления 
 
 ---
@@ -67,7 +65,7 @@
   - отзыва сертификатов (CRL)  
 - Мониторинг опрашивает VPN‑сервер и другие ВМ по защищённым каналам (доступ только из собственной подсети) 
 
-На Этапе 1 реализован только CA‑сервер и его автоматизация. 
+Этапы 1–4 реализованы и доступны через `bootstrap.sh`.
 
 ---
 
@@ -111,8 +109,47 @@ sudo ./bootstrap.sh stage2
 - после выполнения чеклиста можно запустить:
     - `sudo ./bootstrap.sh stage2-verify` – автоматическая проверка состояния VPN‑сервера 
 
-**Планируемые режимы:**
+### vm-monitor (Этап 3: мониторинг)
 
+```bash
+sudo apt update
+sudo apt install -y git
+git clone https://github.com/devops-07-test/devops-final-pki-ca.git
+cd devops-final-pki-ca/scripts
+chmod +x bootstrap.sh
+sudo ./bootstrap.sh stage3
+```
+
+Режим `stage3`:
+
+- устанавливает Prometheus, Alertmanager и Node Exporter;
+- создаёт базовую конфигурацию Prometheus и правила алёртов;
+- выводит подсказки по обновлению целей мониторинга;
+- после настройки можно запустить:
+    - `sudo ./bootstrap.sh stage3-verify` – проверка сервисов и портов мониторинга.
+
+### vm-backup (Этап 4: бэкапы)
+
+```bash
+sudo apt update
+sudo apt install -y git
+git clone https://github.com/devops-07-test/devops-final-pki-ca.git
+cd devops-final-pki-ca/scripts
+chmod +x bootstrap.sh
+sudo ./bootstrap.sh stage4
+```
+
+Режим `stage4`:
+
+- настраивает systemd unit и timer для ежедневных бэкапов;
+- сохраняет конфигурации PKI/VPN/мониторинга в `/var/backups/devops-final`;
+- после первого запуска можно проверить:
+    - `sudo ./bootstrap.sh stage4-verify` – проверка таймера и наличия архивов.
+
+**Доступные режимы:**
+
+- `stage1` – CA (PKI)
+- `stage2` / `stage2-verify` – VPN (OpenVPN)
 - `stage3` / `stage3-verify` – мониторинг (Prometheus + Alertmanager)
 - `stage4` / `stage4-verify` – резервное копирование
 - `stage5` – документация
@@ -171,7 +208,12 @@ sudo ./bootstrap.sh stage2
 
 Пакет используется совместно с `bootstrap.sh stage1`: пакет готовит базовое окружение, а `bootstrap.sh` устанавливает скрипты и выполняет инициализацию и проверки.
 
-Подробнее про Этап 1 и артефакты описано в `docs/stage1-pki.md`.
+Подробнее про этапы:
+
+- Этап 1 (PKI/CA): `docs/stage1-pki.md`
+- Этап 2 (OpenVPN): `docs/stage2-vpn.md`
+- Этап 3 (мониторинг): `docs/stage3-monitoring.md`
+- Этап 4 (бэкапы): `docs/stage4-backup.md`
 
 ---
 
@@ -210,4 +252,4 @@ sudo openssl x509 -in /etc/pki/pki/ca.crt -noout -subject -issuer -dates
 
 ---
 
-Подробное текстовое описание Этапа 1 (роль CA, структура PKI, скрипты, deb‑пакет и проверка воспроизводимости) находится в файле `docs/stage1-pki.md`.
+Подробные описания этапов (роль компонентов, скрипты, проверки) находятся в файлах `docs/stage1-pki.md`, `docs/stage2-vpn.md`, `docs/stage3-monitoring.md`, `docs/stage4-backup.md`.
